@@ -1,72 +1,26 @@
 package pkg
 
 import (
-	"bytes"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
 	"github.com/dappdever/p2/encryption"
+	"golang.org/x/crypto/bcrypt"
 )
-
-type RecordMap struct {
-	PayloadMap map[string]string `json:"payload"`
-	Hash       []byte            `json:"hash"`
-}
 
 type Record struct {
 	Customer            Customer `json:"customer"`
-	Hash                string   `json:"hash"`
+	Sha256              string   `json:"sha256"`
+	Sha512              string   `json:"sha512"`
+	BCrypt1             string   `json:"bcrypt1"`
+	BCrypt2             string   `json:"bcrypt2"`
 	Salt                string   `json:"salt"`
 	SaltedHash          string   `json:"salted_hash"`
 	AESKey              string   `json:"aes_key"`
 	RSAKeyName          string   `json:"rsa_key_name"`
 	AESEncryptedPayload string   `json:"aes_encrypted_payload"`
 	RSAEncryptedKey     string   `json:"rsa_encrypted_key"`
-}
-
-func NewRecordMap(c Customer, keyName string) (RecordMap, error) {
-	r := RecordMap{}
-	r.PayloadMap = make(map[string]string)
-
-	customerS, err := json.Marshal(c)
-	if err != nil {
-		return RecordMap{}, fmt.Errorf("cannot marshal string: %v", err)
-	}
-
-	payloadBytes := new(bytes.Buffer)
-	json.NewEncoder(payloadBytes).Encode(customerS)
-
-	r.PayloadMap["plaintext"] = string(customerS) // payloadBytes.String()
-
-	h := sha256.New()
-	h.Write(customerS)
-	// fmt.Printf("Hash: %x", h.Sum(nil))
-	r.Hash = h.Sum(nil)
-
-	r.PayloadMap["hash"] = hex.EncodeToString(h.Sum(nil))
-
-	// encryption.Sha256(customerS)
-
-	salt := encryption.GenerateRandomSalt()
-	r.PayloadMap["salt"] = hex.EncodeToString(salt)
-
-	// r.PayloadMap["salted_hash"] = string(encryption.HashWithSalt(string(customerS), salt))
-	// r.PayloadMap["rsa_key_name"] = keyName
-
-	// aesKey := encryption.NewAesEncryptionKey()
-	// r.PayloadMap["aes_key"] = string(aesKey[:])
-
-	// aesEncrypted, _ := encryption.AesEncrypt(customerS, aesKey)
-	// r.PayloadMap["aes_encrypted_payload"] = string(aesEncrypted)
-
-	// encryptedAesKey, err := encryption.RsaEncrypt(keyName, aesKey[:])
-	// if err != nil {
-	// 	return RecordMap{}, fmt.Errorf("cannot marshal string: %v", err)
-	// }
-	// r.PayloadMap["encrypted_aes_key"] = string(encryptedAesKey)
-	return r, nil
 }
 
 func NewRecord(c Customer, keyName string) (Record, error) {
@@ -80,12 +34,25 @@ func NewRecord(c Customer, keyName string) (Record, error) {
 	fmt.Println("--")
 	fmt.Println(string(customerS))
 	fmt.Println("--")
+	// zlog.Info("string with no-whitespace", zap.String("customer-string", string(customerS)))
 
-	r.Hash = hex.EncodeToString(encryption.Sha256(customerS))
+	r.Sha256 = hex.EncodeToString(encryption.Sha256(customerS))
+	r.Sha512 = hex.EncodeToString(encryption.Sha512(customerS))
+
+	bcrypt1, err := bcrypt.GenerateFromPassword(customerS, bcrypt.DefaultCost)
+	if err != nil {
+		return Record{}, fmt.Errorf("cannot generate bcrypt: %v", err)
+	}
+	r.BCrypt1 = hex.EncodeToString(bcrypt1)
+
+	bcrypt2, err := bcrypt.GenerateFromPassword(customerS, bcrypt.DefaultCost)
+	if err != nil {
+		return Record{}, fmt.Errorf("cannot generate bcrypt: %v", err)
+	}
+	r.BCrypt2 = hex.EncodeToString(bcrypt2)
 
 	salt := encryption.GenerateRandomSalt()
 	r.Salt = hex.EncodeToString(encryption.GenerateRandomSalt())
-
 	r.SaltedHash = hex.EncodeToString(encryption.HashWithSalt(string(customerS), salt))
 
 	aesKey := encryption.NewAesEncryptionKey()

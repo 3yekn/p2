@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"encoding/json"
 	"log"
 
 	"github.com/bxcodec/faker"
@@ -12,6 +13,17 @@ var zlog *zap.Logger
 
 func init() {
 	logging.Register("github.com/dappdever/p2/pkg", &zlog)
+}
+
+// GetCustomer ...
+func NewCustomer() Customer {
+	var privatePayload Customer
+	err := faker.FakeData(&privatePayload)
+
+	if err != nil {
+		log.Println("Cannot generate fake data: ", err)
+	}
+	return privatePayload
 }
 
 // Customer ...
@@ -30,13 +42,11 @@ type Customer struct {
 	LastScan         string `faker:"timestamp" json:"last_login"`
 }
 
-// GetCustomer ...
-func NewCustomer() Customer {
-	var privatePayload Customer
-	err := faker.FakeData(&privatePayload)
-
+func (c *Customer) String() string {
+	cS, err := json.Marshal(c)
 	if err != nil {
-		log.Println("Cannot generate fake data: ", err)
+		zlog.Error("cannot convert customer to string", zap.Error(err))
+		return "conversion of string failed"
 	}
-	return privatePayload
+	return string(cS)
 }
